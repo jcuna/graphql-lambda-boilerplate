@@ -16,13 +16,13 @@ Stack:
 6. GraphiQL browser IDE
 5. Jest test framework
 3. PostgreSQL 13.4 For RDS compatibility
-7. Docker for dev environment
+7. Docker/docker-compose for dev environment
 8. Bash/zsh for dev environment
 
-*This project requires you to download Docker v18 and up for out of the box local development.
+*This project requires you to download Docker engine v18.02.0+ w/docker-compose v1.25.0+ for out of the box local development.
 Everything is abstracted out so you can be up and running with simple commands.*
 
-*Dev environment has full support for Linux and MacOS. Windows will not work out of the box*
+*Dev environment has full support for Most Linux OSs and MacOS. Windows will not work out of the box*
 
 A local database is automatically setup and env variables to access it will be provided via the following variables
 ```node
@@ -77,6 +77,7 @@ After you fork this repo, You'll also have to update the README file and point y
 3. Use Chrome for GraphQL IDE, portainer, and Traefik UIs.
 4. Follow directions printed on terminal upon running `./service` commands
 5. If you want to see test coverage on your browser, run `./service test-cov` then navigate to `src/tests/coverage/lcov-report` and open index.html on browser
+6. In linux, if you continously get `Please have docker running first.`. Make sure your user has access to run docker. Try `docker ps` and note the output.
 
 
 ## Example to deploy to AWS Lambda

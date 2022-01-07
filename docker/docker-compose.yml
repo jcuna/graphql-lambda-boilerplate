@@ -1,4 +1,4 @@
-version: "3.9"
+version: "3.3"
 
 services:
   dev.db:
@@ -32,7 +32,7 @@ services:
       PG_DATABASE: development
       PG_HOST: dev.db
       NODE_ENV: development
-      LOCAL_ENV: true
+      LOCAL_ENV: 'true'
       ENDPOINT: http://graphql.localhost
       PORTAINER: http://portainer.localhost
       TRAEFIK: http://localhost:8080
