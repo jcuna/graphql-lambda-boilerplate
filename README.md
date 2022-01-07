@@ -114,7 +114,7 @@ NODE_ENV=production npm install
 
 # zip layer and upload to s3
 cd .. && zip -r ../layer.zip * && cd ..
-aws s3 cp layer.zip s3://s3://${MY_BUCKET}/${LAYER_PATH}
+aws s3 cp layer.zip s3://${MY_BUCKET}/${LAYER_PATH}
 
 # Sync your code and layer to your lambda instance
 LAYER_ARN=$(aws lambda publish-layer-version --layer-name "graphql-deps" --description "Dependency layer for GraphQL" --license-info "MIT" --content S3Bucket="${MY_BUCKET}",S3Key="${LAYER_PATH}" --compatible-runtimes nodejs14.x | jq -r '.LayerVersionArn')
