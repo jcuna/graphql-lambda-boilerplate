@@ -1,17 +1,18 @@
 # GraphQL for AWS Lambda Boilerplate code
 
 [![build](https://github.com/jcuna/graphql-lambda-boilerplate/actions/workflows/tests.yml/badge.svg)](https://github.com/jcuna/graphql-lambda-boilerplate/actions/workflows/tests.yml)
-[![coverage](https://byob.yarr.is/jcuna/graphql-lambda-boilerplate/coverage/main/graphql-lambda-boilerplate/coverage.json)](https://github.com/jcuna/graphql-lambda-boilerplate/actions/workflows/tests.yml)
+[![coverage](https://byob.yarr.is/jcuna/graphql-lambda-boilerplate/coverage/byob/graphql-lambda-boilerplate/coverage.json)](https://github.com/jcuna/graphql-lambda-boilerplate/actions/workflows/tests.yml)
 
 
 Use this repo to get started on developing a GraphQL API that can be easily developed locally, and ready to be deployed to AWS Lambda Behind ApiGateway.
 ApiGateway's V1 payload is not supported, so ensure that ApiGateway's payload is set to V2.
-Containes two generic examples to create entities and resolvers as well as tests.
+
+*Contains two generic examples to create entities and resolvers as well as tests.*
 
 Stack:
 1. Typescript/Node
 2. TypeORM
-4. ApolloServer
+4. ApolloServer-Lambda (Apollo optimized for AWS lambda execution)
 6. GraphiQL browser IDE
 5. Jest test framework
 3. PostgreSQL 13.4 For RDS compatibility
