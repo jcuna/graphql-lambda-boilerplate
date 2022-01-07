@@ -1,0 +1,8 @@
+.idea
+src/node_modules
+.DS_Store
+.env
+src/out/
+src/tests/results
+src/tests/coverage
+docker/artifacts

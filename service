@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+
+if [[ "$1" != "" && "$1" != "stop" && "$1" != "shell" && "$1" != "build" && "$1" != "test" && "$1" != "run" \
+   && "$1" != "clean" && "$1" != "test-cov" && "$1" != "seed" && "$1" != "graphql" && "$1" != "exec" \
+   && "$1" != "migrate" && "$1" != "build-prod" ]]; then
+
+  printf >&2 "Bad argument %s.\n" "${1}"
+  printf >&2 "Options:\n"
+  printf >&2 "\t<no args>          -- Starts or restarts service\n"
+  printf >&2 "\t<test>             -- Runs tests\n"
+  printf >&2 "\t<test-cov>         -- Runs tests with coverage\n"
+  printf >&2 "\t<migrate>          -- Runs migrations\n"
+  printf >&2 "\t<shell>            -- Logs into containers shell\n"
+  printf >&2 "\t<exec>             -- Runs an arbitrary command in the container\n"
+  printf >&2 "\t<stop>             -- Stops service\n"
+  printf >&2 "\t<clean>            -- clears out some artifacts\n"
+  exit 1
+fi
+
+CONTAINER_NAME="graphql-lambda-boilerplate"
+BUILD_VERSION=1.00
+
+DIR="$(pwd)"
+
+rm -f "${DIR}/src/.failed"
+rm -f "${DIR}/src/.done"
+
+red_print() {
+  printf "\e[1;31m$1\n\e[0m"
+}
+
+if [[ ! -f "./docker/docker-compose.yml" ]]; then
+  printf "Call me from graphql's root directory.\n"
+  exit 1
+fi
+
+# test that docker is running
+docker ps >/dev/null 2>&1 || {
+  red_print "Please have docker running first."
+  exit 1
+}
+
+get_container_id() {
+  CONTAINER_SSH=$1
+  CMD="ps -a"
+  if [[ "$2" == "full" ]]; then
+    CMD="$CMD --no-trunc"
+  fi
+  IMAGE_NAME=$(docker ps -a --format '{{.Names}}' | grep "$CONTAINER_SSH")
+  echo $(docker $CMD -q --filter name="$IMAGE_NAME" --format="{{.ID}}")
+}
+
+run_tests() {
+  CONTAINER_ID=$(get_container_id ${CONTAINER_NAME})
+  docker exec -ti "$CONTAINER_ID" npm t "${@:0}"
+  exit $?
+}
+
+if [[ "$1" == "shell" ]]; then
+  if [[ "$2" == "" ]]; then
+    CONTAINER_SSH=${CONTAINER_NAME}
+  else
+    CONTAINER_SSH="$2"
+  fi
+
+  CONTAINER_ID=$(get_container_id ${CONTAINER_SSH})
+
+  if [[ ! -z "$CONTAINER_ID" ]]; then
+    docker exec -ti "$CONTAINER_ID" /bin/bash
+  else
+    printf "Could not find container, is it even running?\n"
+    exit 1
+  fi
+  exit
+fi
+
+
+if [[ "$1" == "migrate" ]]; then
+  CONTAINER_ID=$(get_container_id ${CONTAINER_NAME})
+  if [[ ! -z "$CONTAINER_ID" ]]; then
+    red_print "we don't have anything for this yet"
+  else
+    printf "Could not find container, is it even running?\n"
+    exit 1
+  fi
+  exit $?
+fi
+
+if [[ "$1" == "exec" ]]; then
+  CONTAINER_ID=$(get_container_id ${CONTAINER_NAME})
+
+  if [[ ! -z "$CONTAINER_ID" ]]; then
+    docker exec -ti "$CONTAINER_ID" "${@:2}"
+  else
+    printf "Could not find container, is it even running?\n"
+    exit 1
+  fi
+  exit
+fi
+
+if [[ "$1" == "test" ]]; then
+  run_tests "${@:2}"
+fi
+
+if [[ "$1" == "test-cov" ]]; then
+  run_tests "--" "${@:2}" "--coverage"
+fi
+
+if [[ "$1" == "stop" || "$1" == "clean" ]]; then
+  CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose -f docker/docker-compose.yml down
+  if [[ "$1" == "clean" ]]; then
+    docker volume rm $(docker volume ls -q | grep $CONTAINER_NAME-) 2>/dev/null
+    rm -f src/node_modules
+  fi
+  exit 0
+fi
+
+if [[ "$1" == "" ]]; then
+  mkdir -p ./docker/artifacts
+  touch ./docker/artifacts/.bash_history
+  CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose -f docker/docker-compose.yml down >/dev/null 2>&1
+
+  if [[ "$(docker images -q "$CONTAINER_NAME:$BUILD_VERSION" 2>/dev/null)" == "" ]]; then
+    printf "New image version found! need to rebuild\n"
+    docker rmi $(docker images -q $CONTAINER_NAME) 2>/dev/null
+    docker build -t "$CONTAINER_NAME:$BUILD_VERSION" -f ./docker/Dockerfile ./docker
+  fi
+  FILES="-f docker/docker-compose.yml"
+  if [[ -f "docker/docker-compose-override.yml" ]]; then
+    FILES="$FILES -f docker/docker-compose-override.yml"
+  fi
+  CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose $(echo "$FILES up -d")
+  EXIT_CODE=$?
+  if [[ $EXIT_CODE != 0 ]]; then
+    CONTAINER_ID=$(get_container_id $CONTAINER_NAME "full")
+    LOGS="http://portainer.localhost/#/containers/$CONTAINER_ID/logs"
+    red_print "An error occurred, see output logs here: $LOGS"
+    exit $EXIT_CODE
+  fi
+fi
+printf "Installing node_modules if they're needed "
+while [[ ! -f "$DIR/src/.done" && ! -f "$DIR/src/.failed" ]]; do
+  echo -ne "."
+  sleep 1
+done
+
+if [[ -f "$DIR/src/.failed" ]]; then
+  CONTAINER_ID=$(get_container_id $CONTAINER_NAME "full")
+  LOGS="http://portainer.localhost/#/containers/$CONTAINER_ID/logs"
+  red_print "\nAn error occurred, see output logs here: $LOGS"
+  rm -f "${DIR}/src/.failed"
+fi
+
+rm -f "${DIR}/src/.done"
+
+CONTAINER_ID=$(get_container_id ${CONTAINER_NAME})
+docker exec -ti "$CONTAINER_ID" bash -c "npm run start"
+docker exec -ti "$CONTAINER_ID" bash
+
+exit 0

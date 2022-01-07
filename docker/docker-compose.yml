@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  dev.db:
+    image: postgres:13.4-alpine3.14
+    restart: always
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_PASSWORD: localenv
+      POSTGRES_DB: development
+    volumes:
+      - graphql-db:/var/lib/postgresql/data
+
+  graphql-lambda-boilerplate:
+    depends_on:
+      - dev.db
+    image: ${CONTAINER_NAME}
+    volumes:
+      - ../src:/usr/app/src
+      - ../docker/server.js:/usr/app/dev/server.js
+      - ../docker/graphiql.html:/usr/app/dev/graphiql.html
+      - ./entry.sh:/scripts/entry.sh
+      - ./artifacts/.bash_history:/root/.bash_history
+    command: 'sh -c /scripts/entry.sh'
+    tty: true
+    stdin_open: true
+    working_dir: /usr/app/src
+    environment:
+      PG_ROOT_PASSWORD: localenv
+      PG_ROOT_USER: postgres
+      PG_DATABASE: development
+      PG_HOST: dev.db
+      NODE_ENV: development
+      LOCAL_ENV: true
+      ENDPOINT: http://graphql.localhost
+      PORTAINER: http://portainer.localhost
+      TRAEFIK: http://localhost:8080
+    labels:
+      - 'traefik.http.routers.graphql.rule=Host(`graphql.localhost`)'
+      - 'traefik.http.services.graphql.loadbalancer.server.port=3000'
+
+  portainer:
+    image: portainer/portainer
+    command: --no-auth -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - 'traefik.http.routers.portainer.rule=Host(`portainer.localhost`)'
+      - 'traefik.http.services.portainer.loadbalancer.server.port=9000'
+
+  traefik:
+    image: traefik:v2.5.4
+    command:
+      - --api.insecure=true
+      - --providers.docker
+      - --entrypoints.web.address=:80
+      - --log.level=ERROR
+    ports:
+      - '80:80'
+      - '8080:8080' # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  graphql-db:

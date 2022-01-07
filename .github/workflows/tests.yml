@@ -1,0 +1,40 @@
+name: build
+on: [ push ]
+
+jobs:
+  build-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14.x'
+      - name: install npm packages
+        working-directory: ./src
+        run: |
+          npm ci
+          npm i xml-splitter --no-save
+      - name: Run tests
+        working-directory: ./src
+        run: npm t -- --coverage
+      - name: Publish Unit Test Results Step
+        uses: EnricoMi/publish-unit-test-result-action/composite@v1
+        if: always()
+        with:
+          files: src/tests/results/*.xml
+          fail_on: test failures
+      - name: Update Coverage Variables
+        working-directory: ./src
+        run: node coverage.js >> $GITHUB_ENV
+      - name: Generate/Update Coverage badge
+        uses: RubbaBoy/BYOB@v1.2.1
+        with:
+          NAME: coverage
+          PATH: graphql-lambda-boilerplate/coverage.json
+          BRANCH: byob
+          LABEL: coverage
+          ICON: 'github'
+          STATUS: ${{ env.PERCENT }}
+          COLOR: ${{ env.COLOR }}
+          GITHUB_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
