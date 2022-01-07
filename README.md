@@ -32,7 +32,7 @@ process.env.PG_ROOT_PASSWORD
 process.env.PG_DATABASE
 ```
 
-### Commands for running and testing application
+## Commands for running and testing application
 
 | **command**          | **description**                                                                      |
 |  ------------------  |-----------------------------------------------------                                 |
@@ -44,7 +44,7 @@ process.env.PG_DATABASE
 | `./service test-cov`   | Runs test with coverage                                                              |
 | `./service stop`       | Stops and removes dependencies                                                       |
 
-### NPM Commands
+## NPM Commands
 
 #### in case you want to run all npm commands yourself, you can run `./service shell` instead and manually execute them
 
@@ -64,16 +64,62 @@ process.env.PG_DATABASE
 Edit `src/.eslintrc.js` for different code quality checks and style
 
 
-### GitHub Action
+## GitHub Action
 There's a GitHub action that runs tests and test coverage and publishes results to a badge.
 You'll have to change the `PATH` variable in `.github/workflows/tests.yml` to your own forked repo
 After you fork this repo, You'll also have to update the README file and point your badges to the appropriate paths.
 *Custom badge feature provided by https://github.com/RubbaBoy/BYOB* 
 
 
-# Gotchas
+## Gotchas
 1. First time you run `./service`, it will take a while to load up as it needs to download and build docker images as well as install node_modules
 2. To run tests alongside the watch/server running, open a second terminal tab, do `./servive test` or `./service test-cov`
 3. Use Chrome for GraphQL IDE, portainer, and Traefik UIs.
 4. Follow directions printed on terminal upon running `./service` commands
 5. If you want to see test coverage on your browser, run `./service test-cov` then navigate to `src/tests/coverage/lcov-report` and open index.html on browser
+
+
+## Example to deploy to AWS Lambda
+*If you're deploying via local computer. Make sure you have your AWS Credential variables exported as well as awscli and jq installed.*
+*You can also access the nodejs container to use awscli and jq which are present there. Run `./service shell`. Then `cd ..` You will need to export your AWS credentials there.*
+*The below steps also work with codebuild via buildspec.yml*
+```shell
+# Declare these variables according to your cloud infrastructure
+MY_FUNCTION_NAME=""
+MY_BUCKET=""
+LAMBDA_PATH=""
+LAYER_PATH=""
+
+# make dir for layer
+mkdir -p layer/nodejs
+cd src
+
+# install packages and build output files
+npm install
+npm run build
+
+# run tests, if they fail, build will be cancelled
+npm t
+
+# zip lambda and upload to s3
+cd out && zip -r ../lambda.zip * && cd ..
+aws s3 cp lambda.zip s3://${MY_BUCKET}/${LAMBDA_PATH}
+
+# copy node packages manifest to different directory to create a clean production layer that we can sync to s3
+cp package.json package-lock.json layer/nodejs
+cd layer/nodejs
+
+# install production packages
+NODE_ENV=production npm install
+
+# zip layer and upload to s3
+cd .. && zip -r ../layer.zip * && cd ..
+aws s3 cp layer.zip s3://s3://${MY_BUCKET}/${LAYER_PATH}
+
+# Sync your code and layer to your lambda instance
+LAYER_ARN=$(aws lambda publish-layer-version --layer-name "graphql-deps" --description "Dependency layer for GraphQL" --license-info "MIT" --content S3Bucket="${MY_BUCKET}",S3Key="${LAYER_PATH}" --compatible-runtimes nodejs14.x | jq -r '.LayerVersionArn')
+aws lambda update-function-code --function-name "${MY_FUNCTION_NAME}" --s3-bucket "$MY_BUCKET" --s3-key "$LAMBDA_PATH" --publish
+aws lambda wait function-updated --function-name "${MY_FUNCTION_NAME}"
+aws lambda update-function-configuration --function-name "${MY_FUNCTION_NAME}" --layers "${LAYER_ARN}"
+
+```

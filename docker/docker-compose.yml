@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: localenv
       POSTGRES_DB: development
     volumes:
-      - graphql-db:/var/lib/postgresql/data
+      - ${DB_VOLUME_NAME}:/var/lib/postgresql/data
 
   graphql-lambda-boilerplate:
     depends_on:

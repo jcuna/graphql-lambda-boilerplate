@@ -13,12 +13,13 @@ if [[ "$1" != "" && "$1" != "stop" && "$1" != "shell" && "$1" != "build" && "$1"
   printf >&2 "\t<shell>            -- Logs into containers shell\n"
   printf >&2 "\t<exec>             -- Runs an arbitrary command in the container\n"
   printf >&2 "\t<stop>             -- Stops service\n"
-  printf >&2 "\t<clean>            -- clears out some artifacts\n"
+  printf >&2 "\t<clean>            -- Removes database, node_modules and other artifacts\n"
   exit 1
 fi
 
 CONTAINER_NAME="graphql-lambda-boilerplate"
 BUILD_VERSION=1.00
+DB_VOLUME_NAME="graphql-db"
 
 DIR="$(pwd)"
 
@@ -107,10 +108,10 @@ if [[ "$1" == "test-cov" ]]; then
 fi
 
 if [[ "$1" == "stop" || "$1" == "clean" ]]; then
-  CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose -f docker/docker-compose.yml down
+  DB_VOLUME_NAME=${DB_VOLUME_NAME} CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose -f docker/docker-compose.yml down
   if [[ "$1" == "clean" ]]; then
-    docker volume rm $(docker volume ls -q | grep $CONTAINER_NAME-) 2>/dev/null
-    rm -f src/node_modules
+    docker volume rm $(docker volume ls -q | grep ${DB_VOLUME_NAME}) 2>/dev/null
+    rm -rf src/node_modules
   fi
   exit 0
 fi
@@ -118,7 +119,7 @@ fi
 if [[ "$1" == "" ]]; then
   mkdir -p ./docker/artifacts
   touch ./docker/artifacts/.bash_history
-  CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose -f docker/docker-compose.yml down >/dev/null 2>&1
+  DB_VOLUME_NAME=${DB_VOLUME_NAME} CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose -f docker/docker-compose.yml down >/dev/null 2>&1
 
   if [[ "$(docker images -q "$CONTAINER_NAME:$BUILD_VERSION" 2>/dev/null)" == "" ]]; then
     printf "New image version found! need to rebuild\n"
@@ -129,7 +130,7 @@ if [[ "$1" == "" ]]; then
   if [[ -f "docker/docker-compose-override.yml" ]]; then
     FILES="$FILES -f docker/docker-compose-override.yml"
   fi
-  CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose $(echo "$FILES up -d")
+  DB_VOLUME_NAME=${DB_VOLUME_NAME} CONTAINER_NAME=${CONTAINER_NAME}:${BUILD_VERSION} docker-compose $(echo "$FILES up -d")
   EXIT_CODE=$?
   if [[ $EXIT_CODE != 0 ]]; then
     CONTAINER_ID=$(get_container_id $CONTAINER_NAME "full")
